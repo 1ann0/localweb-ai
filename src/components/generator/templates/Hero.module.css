@@ -1,0 +1,72 @@
+.hero {
+    padding: 120px 20px;
+    text-align: center;
+    background: radial-gradient(circle at top center, rgba(99, 102, 241, 0.15) 0%, rgba(11, 12, 21, 0) 50%);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+}
+
+.headline {
+    font-family: var(--font-syne);
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 24px;
+    background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.02em;
+}
+
+.subheadline {
+    font-size: 20px;
+    color: var(--text-secondary);
+    margin-bottom: 48px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+}
+
+.ctaContainer {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.primaryButton {
+    background-color: var(--primary);
+    color: white;
+    padding: 16px 32px;
+    border-radius: 100px;
+    font-weight: 700;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 0 20px -5px rgba(99, 102, 241, 0.5);
+}
+
+.primaryButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px -5px rgba(99, 102, 241, 0.6);
+}
+
+.secondaryButton {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: white;
+    padding: 16px 32px;
+    border-radius: 100px;
+    font-weight: 600;
+    font-size: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+}
+
+.secondaryButton:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}

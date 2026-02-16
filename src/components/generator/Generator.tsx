@@ -4,10 +4,14 @@ import React, { useState } from 'react';
 import { BusinessData } from '@/types/business';
 import { Hero } from './templates/Hero';
 import { ServiceList } from './templates/ServiceList';
+import { About } from './templates/About';
+import { ContactForm } from './templates/ContactForm';
 import { Footer } from './templates/Footer';
-import { Bot, Upload, Play, Save, LogIn, ArrowLeft, Sparkles } from 'lucide-react';
+import { Bot, Upload, Play, Save, LogIn, Sparkles, Menu, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { saveSite } from '@/lib/db';
+import { toast } from 'sonner';
+import { auth } from '@/lib/firebase';
 
 // Initial mock data
 const INITIAL_DATA: BusinessData = {
@@ -21,36 +25,54 @@ const INITIAL_DATA: BusinessData = {
     }
 };
 
-export default function Generator() {
-    const [data, setData] = useState<BusinessData>(INITIAL_DATA);
+export default function Generator({ initialData }: { initialData?: BusinessData }) {
+    const [data, setData] = useState<BusinessData>(initialData || INITIAL_DATA);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const { user, signInWithGoogle } = useAuth();
+
+    const getAuthHeaders = async (): Promise<HeadersInit> => {
+        if (!auth.currentUser) return {};
+        const token = await auth.currentUser.getIdToken();
+        return { Authorization: `Bearer ${token}` };
+    };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        if (!user) {
+            toast.error('Please sign in to upload files');
+            return;
+        }
 
         setIsLoading(true);
         try {
             const formData = new FormData();
             formData.append('file', file);
 
+            const authHeaders = await getAuthHeaders();
             const response = await fetch('/api/parse-file', {
                 method: 'POST',
+                headers: authHeaders,
                 body: formData,
             });
 
-            if (!response.ok) throw new Error('Upload failed');
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || 'Upload failed');
+            }
 
             const newData = await response.json();
             setData(newData);
+            toast.success('File processed successfully!');
         } catch (error) {
             console.error(error);
-            alert('Failed to process file. Please try again.');
+            toast.error(error instanceof Error ? error.message : 'Failed to process file');
         } finally {
             setIsLoading(false);
             if (fileInputRef.current) {
@@ -62,21 +84,31 @@ export default function Generator() {
     const handleGenerate = async () => {
         if (!input) return;
 
+        if (!user) {
+            toast.error('Please sign in to generate sites');
+            return;
+        }
+
         setIsLoading(true);
         try {
+            const authHeaders = await getAuthHeaders();
             const response = await fetch('/api/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify({ prompt: input }),
             });
 
-            if (!response.ok) throw new Error('Generation failed');
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || 'Generation failed');
+            }
 
             const newData = await response.json();
             setData(newData);
+            toast.success('Site generated successfully!');
         } catch (error) {
             console.error(error);
-            alert('Failed to generate site. Please try again.');
+            toast.error(error instanceof Error ? error.message : 'Failed to generate site');
         } finally {
             setIsLoading(false);
         }
@@ -87,8 +119,9 @@ export default function Generator() {
             setIsLoggingIn(true);
             try {
                 await signInWithGoogle();
-            } catch (error) {
-                console.error("Login failed", error);
+                toast.success('Signed in successfully!');
+            } catch {
+                toast.error('Sign in failed. Please try again.');
             } finally {
                 setIsLoggingIn(false);
             }
@@ -98,10 +131,9 @@ export default function Generator() {
         setIsSaving(true);
         try {
             await saveSite(user.uid, data);
-            alert('Site saved successfully!');
-        } catch (error) {
-            console.error("Error saving site:", error);
-            alert('Failed to save site. Please try again.');
+            toast.success('Site saved successfully!');
+        } catch {
+            toast.error('Failed to save site. Please try again.');
         } finally {
             setIsSaving(false);
         }
@@ -111,8 +143,31 @@ export default function Generator() {
         <div className="flex h-screen bg-background overflow-hidden font-sans text-foreground">
             <div className="noise-bg" />
 
+            {/* Mobile sidebar toggle */}
+            <button
+                className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white/10 rounded-lg border border-white/10"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+            >
+                {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+
+            {/* Mobile overlay */}
+            {sidebarOpen && (
+                <div
+                    className="md:hidden fixed inset-0 bg-black/60 z-30"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
             {/* Left Sidebar: Controls */}
-            <div className="w-[400px] glass-panel border-r border-border flex flex-col z-10 relative">
+            <div className={`
+                fixed md:relative z-40 h-full
+                w-[320px] md:w-[400px]
+                glass-panel border-r border-border flex flex-col
+                transition-transform duration-300
+                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+            `}>
                 <div className="p-6 border-b border-border flex justify-between items-center bg-white/5">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/20 rounded-lg text-primary shadow-[0_0_15px_rgba(99,102,241,0.3)]">
@@ -143,6 +198,7 @@ export default function Generator() {
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium text-gray-300 hover:bg-white/10 hover:border-white/20 hover:text-white transition-all group"
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isLoading}
+                                aria-label="Upload file"
                             >
                                 <div className="p-1.5 bg-white/5 rounded-md group-hover:bg-white/10 transition-colors">
                                     <Upload size={16} className="text-gray-400 group-hover:text-white" />
@@ -192,6 +248,7 @@ export default function Generator() {
                                     className="flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-bold rounded-lg hover:bg-gray-200 transition-all hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
                                     onClick={handleGenerate}
                                     disabled={isLoading}
+                                    aria-label="Generate website"
                                 >
                                     {isLoading ? (
                                         <span>Generating...</span>
@@ -215,37 +272,46 @@ export default function Generator() {
             </div>
 
             {/* Right Area: Preview */}
-            <div className="flex-1 bg-black/40 p-8 overflow-hidden relative flex flex-col items-center justify-center">
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
+            <div className="flex-1 bg-black/40 p-4 md:p-8 overflow-hidden relative flex flex-col items-center justify-center">
+                <div className="absolute inset-0 noise-overlay opacity-20 pointer-events-none"></div>
 
                 {/* Ambient Glow */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
 
-                <div className="w-full h-full max-w-6xl flex flex-col relative z-10 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-                    {/* Browser Chrome */}
-                    <div className="bg-[#1E1E2E] rounded-t-xl p-3 flex items-center gap-4 shadow-2xl border border-white/5 border-b-0">
-                        <div className="flex gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-                            <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-                            <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-                        </div>
-                        <div className="flex-1 bg-black/30 rounded-md px-4 py-1.5 text-xs text-gray-400 font-mono text-center flex items-center justify-center gap-2 border border-white/5">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-                            {data.businessName.toLowerCase().replace(/\s+/g, '-')}.com
-                        </div>
-                        <div className="w-16"></div> {/* Spacer for centering */}
+                {isLoading ? (
+                    <div className="relative z-10 flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        <p className="text-gray-400 text-sm">Generating your website...</p>
                     </div>
+                ) : (
+                    <div className="w-full h-full max-w-6xl flex flex-col relative z-10 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                        {/* Browser Chrome */}
+                        <div className="bg-[#1E1E2E] rounded-t-xl p-3 flex items-center gap-4 shadow-2xl border border-white/5 border-b-0">
+                            <div className="flex gap-2">
+                                <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
+                                <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
+                                <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
+                            </div>
+                            <div className="flex-1 bg-black/30 rounded-md px-4 py-1.5 text-xs text-gray-400 font-mono text-center flex items-center justify-center gap-2 border border-white/5">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                                {data.businessName.toLowerCase().replace(/\s+/g, '-')}.com
+                            </div>
+                            <div className="w-16"></div>
+                        </div>
 
-                    {/* Website Content */}
-                    <div className="flex-1 bg-background rounded-b-xl shadow-2xl overflow-y-auto scrollbar-hide border border-white/5 border-t-0 relative">
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
-                        <div className="website-content relative z-10">
-                            <Hero data={data} />
-                            <ServiceList data={data} />
-                            <Footer data={data} />
+                        {/* Website Content */}
+                        <div className="flex-1 bg-background rounded-b-xl shadow-2xl overflow-y-auto scrollbar-hide border border-white/5 border-t-0 relative">
+                            <div className="noise-overlay opacity-20 pointer-events-none absolute inset-0"></div>
+                            <div className="website-content relative z-10">
+                                <Hero data={data} />
+                                {data.aboutText && <About data={data} />}
+                                <ServiceList data={data} />
+                                <ContactForm data={data} />
+                                <Footer data={data} />
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

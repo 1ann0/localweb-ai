@@ -19,6 +19,7 @@ const config: Config = {
                 "primary-hover": "var(--primary-hover)",
                 surface: "var(--surface)",
                 border: "var(--border)",
+                "accent-pink": "var(--accent-pink)",
             },
             animation: {
                 "fade-in": "fadeIn 0.5s ease-out forwards",

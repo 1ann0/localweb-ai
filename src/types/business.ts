@@ -21,4 +21,12 @@ export interface BusinessData {
   services: Service[];
   contact: ContactInfo;
   aboutText?: string;
+  logoUrl?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    yelp?: string;
+  };
+  businessType?: string;
 }

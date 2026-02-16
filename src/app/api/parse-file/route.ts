@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
 import { BusinessData } from '@/types/business';
+import { verifyAuthToken } from '@/lib/auth-server';
+
+const ALLOWED_MIME_TYPES = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+];
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // Mock response for file upload
 const MOCK_FILE_RESPONSE: BusinessData = {
@@ -19,12 +28,37 @@ const MOCK_FILE_RESPONSE: BusinessData = {
 
 export async function POST(req: Request) {
     try {
+        // Verify authentication
+        const decodedToken = await verifyAuthToken(req);
+        if (!decodedToken) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
+
         const formData = await req.formData();
         const file = formData.get('file');
 
-        if (!file) {
+        if (!file || !(file instanceof File)) {
             return NextResponse.json(
                 { error: 'No file provided' },
+                { status: 400 }
+            );
+        }
+
+        // Validate MIME type
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+            return NextResponse.json(
+                { error: `Invalid file type: ${file.type}. Allowed: PDF, JPEG, PNG` },
+                { status: 400 }
+            );
+        }
+
+        // Validate file size
+        if (file.size > MAX_FILE_SIZE) {
+            return NextResponse.json(
+                { error: `File too large. Maximum size is 10MB` },
                 { status: 400 }
             );
         }

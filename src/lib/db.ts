@@ -5,30 +5,26 @@ import {
     setDoc,
     getDoc,
     getDocs,
+    deleteDoc,
     query,
     where,
-    Timestamp,
-    serverTimestamp
 } from "firebase/firestore";
 import { BusinessData } from "@/types/business";
 
 export interface Site extends BusinessData {
     id: string;
     userId: string;
-    createdAt: number; // Timestamp in milliseconds
+    createdAt: number;
     updatedAt: number;
 }
 
-const USERS_COLLECTION = "users";
 const SITES_COLLECTION = "sites";
 
 /**
- * Save a site to Firestore under the user's subcollection or a top-level collection.
- * Here we use a top-level 'sites' collection with a userId field for easier querying group-wide if needed,
- * but strictly scoped by security rules.
+ * Save a site to Firestore.
  */
 export async function saveSite(userId: string, siteData: BusinessData, siteId?: string): Promise<string> {
-    const id = siteId || `site-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = siteId || crypto.randomUUID();
     const siteRef = doc(db, SITES_COLLECTION, id);
 
     const now = Date.now();
@@ -74,4 +70,20 @@ export async function getSite(siteId: string): Promise<Site | null> {
     } else {
         return null;
     }
+}
+
+/**
+ * Delete a site by ID.
+ */
+export async function deleteSite(siteId: string): Promise<void> {
+    const siteRef = doc(db, SITES_COLLECTION, siteId);
+    await deleteDoc(siteRef);
+}
+
+/**
+ * Update a site with new data.
+ */
+export async function updateSite(siteId: string, siteData: Partial<BusinessData>): Promise<void> {
+    const siteRef = doc(db, SITES_COLLECTION, siteId);
+    await setDoc(siteRef, { ...siteData, updatedAt: Date.now() }, { merge: true });
 }
